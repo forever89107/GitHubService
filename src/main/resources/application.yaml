@@ -1,0 +1,6 @@
+# project port
+spring:
+  application:
+    name: GitHub Server
+server:
+  port: 8888

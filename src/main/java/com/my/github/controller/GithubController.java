@@ -38,16 +38,16 @@ public class GithubController {
         if (StringUtils.hasLength(dto.getOwner())) owner = dto.getOwner().trim();
         if (StringUtils.hasLength(dto.getNew_owner())) new_owner = dto.getNew_owner().trim();
         if (StringUtils.hasLength(dto.getToken())) token = dto.getToken().trim();
-
         return "設置成功";
     }
 
-
-    @Scheduled(cron = "*/20 * * * * *")
+    @Scheduled(cron = "0 */5  * * * *")
     public void start() {
         log.info("開始移轉repo-start");
-        if (StringUtils.hasLength(owner) && StringUtils.hasLength(token))
+        if (StringUtils.hasLength(owner) && StringUtils.hasLength(token)) {
+            service.listRepos(owner, token);
             service.transfer(new TransferRequest(owner, new_owner), token);
+        }
 
     }
 }

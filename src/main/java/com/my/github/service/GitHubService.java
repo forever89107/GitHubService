@@ -6,19 +6,19 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.my.github.OkHttpUtil;
 import com.my.github.TransferRequest;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 @Service
+@Slf4j
 public class GitHubService {
-    private static final Set<String> unDealRepo = new HashSet<>();
+    private static List<String> unDealRepo = new ArrayList<>();
+    private static Set<String> doneRepo = new LinkedHashSet<>();
 
     public Boolean listRepos(String username, String token) {
         // https://api.github.com/users/{username}/repos
@@ -30,7 +30,10 @@ public class GitHubService {
                 for (JsonElement ele : repos) {
                     JsonObject jsonObj = new Gson().fromJson(ele, JsonObject.class);
                     String name = jsonObj.get("name").getAsString();
-                    unDealRepo.add(name);
+                    boolean visibility = jsonObj.get("private").getAsBoolean();
+                    if (!visibility)
+                        unDealRepo.add(name);
+                    if (unDealRepo.size() >= 30) break;
                 }
                 return true;
             }
@@ -42,19 +45,24 @@ public class GitHubService {
 
 
     public void transfer(TransferRequest req, String token) {
-        if (CollectionUtils.isEmpty(unDealRepo)) {
+        System.out.println(unDealRepo.toString());
+        if (unDealRepo.size() > 0) {
             for (String name : unDealRepo) {
                 req.setRepo(name);
                 // https://api.github.com/repos/{username}/{repo}/transfer
                 String URL = "https://api.github.com/repos/" + req.getOwner() + "/" + req.getRepo() + "/transfer";
                 try (Response response = OkHttpUtil.request_Post(URL, token, new Gson().toJson(req))) {
                     if (response.code() == HttpStatus.ACCEPTED.value() || response.code() == HttpStatus.OK.value()) {
-                        unDealRepo.remove(name);
+                        doneRepo.add(name);
                     } else break;
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
+            unDealRepo.clear();
+            log.info("已完成數量： " + doneRepo.size()+" 。");
+            doneRepo.clear();
+            log.info("移轉repo-start結束");
         }
     }
 }
